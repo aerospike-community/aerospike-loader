@@ -33,10 +33,9 @@ import java.util.concurrent.Callable;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.io.IOException;
+import java.util.Map;
 
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.AerospikeException;
@@ -69,7 +68,7 @@ public class AsWriterTask implements Callable<Integer> {
 
 	private Parameters params;
 	private Counter counters;
-	private JSONParser jsonParser;
+	// JSON parsing is now handled by RelaxedJsonMapper
 
 	private static Logger log = LogManager.getLogger(AsWriterTask.class);
 
@@ -229,14 +228,9 @@ public class AsWriterTask implements Callable<Integer> {
 					+ " Aerospike Bin processing Error: " + ae.getResultCode());
 			handleProcessLineError(ae);
 
-		} catch (ParseException pe) {
-
-			log.error("File: " + Utils.getFileName(this.fileName) + " Line: " + lineNumber + " Parsing Error: " + pe);
-			handleProcessLineError(pe);
-
 		} catch (Exception e) {
 
-			log.error("File: " + Utils.getFileName(this.fileName) + " Line: " + lineNumber + " Unknown Error: " + e);
+			log.error("File: " + Utils.getFileName(this.fileName) + " Line: " + lineNumber + " Error: " + e);
 			handleProcessLineError(e);
 
 		}
@@ -247,7 +241,7 @@ public class AsWriterTask implements Callable<Integer> {
 	 * Validate if number of column in data line are same as provided in config file.
 	 * Throw exception the more columns are present then given.
 	 */
-	private void validateNColumnInDataline() throws ParseException {
+	private void validateNColumnInDataline() throws Exception {
 		
 		// Throw exception if n_columns(datafile) are more than n_columns(configfile).
 		int n_column = Integer.parseInt(dsvConfigs.get(Constants.N_COLUMN));
@@ -258,7 +252,7 @@ public class AsWriterTask implements Callable<Integer> {
 			log.warn("File: " + Utils.getFileName(fileName) + " Line: " + lineNumber
 					+ " Number of column mismatch:Columns in data file is less than number of column in config file.");
 		} else {
-			throw new ParseException(lineNumber);
+			throw new Exception("Column count mismatch at line " + lineNumber);
 		}
 	}
 	
@@ -451,28 +445,31 @@ public class AsWriterTask implements Callable<Integer> {
 		try {
 			log.debug(binRawValue);
 
-			if (jsonParser == null) {
-				jsonParser = new JSONParser();
-			}
+			JsonNode jsonNode = RelaxedJsonMapper.parseJson(binRawValue);
 
-			Object obj = jsonParser.parse(binRawValue);
-
-			if (obj instanceof JSONArray) {
-				JSONArray jsonArray = (JSONArray) obj;
+			if (jsonNode.isArray()) {
+				List<Object> jsonArray = RelaxedJsonMapper.parseJsonToList(binRawValue);
 				return new Bin(binName, jsonArray);
 			} else {
-				JSONObject jsonObj = (JSONObject) obj;
+				Object jsonObj = RelaxedJsonMapper.jsonNodeToObject(jsonNode);
 
 				if (this.params.unorderdMaps) {
-					return  new Bin(binName, jsonObj);
+					if (jsonObj instanceof Map) {
+						return  new Bin(binName, (Map<?, ?>) jsonObj);
+					}
+					return new Bin(binName, jsonObj.toString());
 				}
 
-				TreeMap<?,?> sortedMap = new TreeMap<>();
-				sortedMap.putAll(jsonObj);
-				return  new Bin(binName, sortedMap);
+				if (jsonObj instanceof Map) {
+					TreeMap<Object, Object> sortedMap = new TreeMap<>();
+					sortedMap.putAll((Map<?, ?>) jsonObj);
+					return  new Bin(binName, sortedMap);
+				}
+				
+				return new Bin(binName, jsonObj.toString());
 			}
 
-		} catch (ParseException e) {
+		} catch (IOException e) {
 			log.error("Failed to parse JSON: " + e);
 			return null;
 		}

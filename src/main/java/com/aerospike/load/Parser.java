@@ -32,10 +32,8 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.io.IOException;
 
 /**
  * Parser class to parse different schema/(data definition) and data files.
@@ -58,21 +56,16 @@ public class Parser {
 	public static boolean parseJSONColumnDefinitions(File configFile, HashMap<String, String> dsvConfigs,	List<MappingDefinition> mappingDefs) {
 		FileReader fr = null;
 		try {
-			JSONParser jsonParser = new JSONParser();
-
-			Object obj;
 			fr = new FileReader(configFile);
-			obj = jsonParser.parse(fr);
+			JsonNode jobj = RelaxedJsonMapper.parseJson(fr);
 
-			JSONObject jobj;
-			if (obj == null) {
+			if (jobj == null) {
 				log.error("Empty config File.");
 				if (fr != null)
 					fr.close();
 				return false;
 			} else {
-				jobj = (JSONObject) obj;
-				log.debug("Config file contents: " + jobj.toJSONString());
+				log.debug("Config file contents: " + RelaxedJsonMapper.jsonNodeToString(jobj));
 			}
 
 			/*
@@ -91,12 +84,6 @@ public class Parser {
 			if (log.isDebugEnabled()) {
 				ie.printStackTrace();
 			}
-		} catch (ParseException pe) {
-			log.error("File: " + Utils.getFileName(configFile.getName()) + " Config parsing Error: " + pe.toString());
-			if (log.isDebugEnabled()) {
-				pe.printStackTrace();
-			}
-
 		} catch (Exception e) {
 			log.error("File: " + Utils.getFileName(configFile.getName()) + " Config unknown Error: " + e.toString());
 			if (log.isDebugEnabled()) {
@@ -122,11 +109,11 @@ public class Parser {
 	/*
 	 * Parse Dsv_configs from config file.
 	 */
-	private static boolean getUpdateDsvConfig(JSONObject jobj, HashMap<String, String> dsvConfigs) {
+	private static boolean getUpdateDsvConfig(JsonNode jobj, HashMap<String, String> dsvConfigs) {
 		Object obj = null;
 
 		// Get Metadata of loader (update dsvConfigs)
-		if ((obj = getFromJsonObject(jobj, Constants.VERSION)) == null) {
+		if ((obj = RelaxedJsonMapper.getFromJsonNode(jobj, Constants.VERSION)) == null) {
 			log.error("\"" + Constants.VERSION + "\"  Key is missing in config file.");
 			return false;
 		}
@@ -134,23 +121,23 @@ public class Parser {
 
 		
 		// Get DSV_CONFIG parameters. (n_columns, delimiter, header_exist..)
-		if ((obj = getFromJsonObject(jobj, Constants.DSV_CONFIG)) == null) {
+		if ((obj = RelaxedJsonMapper.getFromJsonNode(jobj, Constants.DSV_CONFIG)) == null) {
 			log.error("\"" + Constants.DSV_CONFIG + "\"  Key is missing in config file.");
 			return false;
 		}
-		JSONObject dsvConfigObj = (JSONObject) obj;
+		JsonNode dsvConfigObj = jobj.get(Constants.DSV_CONFIG);
 
-		if ((obj = getFromJsonObject(dsvConfigObj, Constants.N_COLUMN)) == null) {
+		if ((obj = RelaxedJsonMapper.getFromJsonNode(dsvConfigObj, Constants.N_COLUMN)) == null) {
 			log.error("\"" + Constants.N_COLUMN + "\"  Key is missing in config file.");
 			return false;
 		}
 		dsvConfigs.put(Constants.N_COLUMN, obj.toString());
 
 		// Delimiter and Header_exist config are optional.
-		if ((obj = getFromJsonObject(dsvConfigObj, Constants.DELIMITER)) != null)
+		if ((obj = RelaxedJsonMapper.getFromJsonNode(dsvConfigObj, Constants.DELIMITER)) != null)
 			dsvConfigs.put(Constants.DELIMITER, obj.toString());
 
-		if ((obj = getFromJsonObject(dsvConfigObj, Constants.HEADER_EXIST)) != null)
+		if ((obj = RelaxedJsonMapper.getFromJsonNode(dsvConfigObj, Constants.HEADER_EXIST)) != null)
 			dsvConfigs.put(Constants.HEADER_EXIST, obj.toString());
 		
 		return true;
@@ -159,35 +146,35 @@ public class Parser {
 	/*
 	 * Parse all mapping given in config file.
 	 */
-	private static boolean getUpdateMappingColumnDefs(JSONObject jobj, List<MappingDefinition> mappingDefs) throws Exception {
+	private static boolean getUpdateMappingColumnDefs(JsonNode jobj, List<MappingDefinition> mappingDefs) throws Exception {
 		Object obj = null;
-		JSONArray mappings;
-		if ((obj = getFromJsonObject(jobj, Constants.MAPPINGS)) != null) {
-			mappings = (JSONArray) obj;
-			Iterator<?> it = mappings.iterator();
-			while (it.hasNext()) {
-				JSONObject mappingObj = (JSONObject) it.next();
-				MappingDefinition md = getMappingDef(mappingObj);
-				if (md != null) {
-					mappingDefs.add(md);
-				} else {
-					log.error("Error in parsing mappingdef: " + mappingObj.toString());
-					return false;
+		JsonNode mappings;
+		if ((obj = RelaxedJsonMapper.getFromJsonNode(jobj, Constants.MAPPINGS)) != null) {
+			mappings = jobj.get(Constants.MAPPINGS);
+			if (mappings.isArray()) {
+				for (JsonNode mappingObj : mappings) {
+					MappingDefinition md = getMappingDef(mappingObj);
+					if (md != null) {
+						mappingDefs.add(md);
+					} else {
+						log.error("Error in parsing mappingdef: " + RelaxedJsonMapper.jsonNodeToString(mappingObj));
+						return false;
+					}
 				}
 			}
 		}
 		return true;
 	}
 	
-	private static Object getFromJsonObject(JSONObject jobj, String key) {
-		return jobj.get(key);
+	private static Object getFromJsonObject(JsonNode jobj, String key) {
+		return RelaxedJsonMapper.getFromJsonNode(jobj, key);
 	}
 
 	/*
 	 * Parse mapping definition from config file to get mappingDef
 	 * This will have (secondary_mapping_ keyDefinition, setDefinition, binDefinition).  
 	 */
-	private static MappingDefinition getMappingDef(JSONObject mappingObj) throws Exception {
+	private static MappingDefinition getMappingDef(JsonNode mappingObj) throws Exception {
 		
 		boolean secondary_mapping = false;
 		MetaDefinition keyColumnDef = null;
@@ -203,33 +190,33 @@ public class Parser {
 		}
 
 		if ((obj = getFromJsonObject(mappingObj, Constants.KEY)) != null) {
-			keyColumnDef = getMetaDefs((JSONObject) obj, Constants.KEY);
+			keyColumnDef = getMetaDefs(mappingObj.get(Constants.KEY), Constants.KEY);
 		} else {
-			log.error("\"" + Constants.KEY + "\"  Key is missing in mapping. Mapping: " + mappingObj.toString());
+			log.error("\"" + Constants.KEY + "\"  Key is missing in mapping. Mapping: " + RelaxedJsonMapper.jsonNodeToString(mappingObj));
 			return null;
 		}
 
 
 		if ((obj = getFromJsonObject(mappingObj, Constants.SET)) == null) {
-			log.error("\"" + Constants.SET + "\"  Key is missing in mapping. Mapping: " + mappingObj.toString());
+			log.error("\"" + Constants.SET + "\"  Key is missing in mapping. Mapping: " + RelaxedJsonMapper.jsonNodeToString(mappingObj));
 			return null;
 		} else if (obj instanceof String) {
 			setColumnDef = new MetaDefinition(obj.toString(), null);
 		} else {
-			setColumnDef = getMetaDefs((JSONObject) obj, Constants.SET);
+			setColumnDef = getMetaDefs(mappingObj.get(Constants.SET), Constants.SET);
 		}
 
 		if ((obj = getFromJsonObject(mappingObj, Constants.BINLIST)) != null) {
-			JSONArray binObjList = (JSONArray) obj;
-			Iterator<?> it = binObjList.iterator();
-			while (it.hasNext()) {
-				JSONObject binObj = (JSONObject) it.next();
-				BinDefinition binDef = getBinDefs(binObj);
-				if (binDef != null) {
-					binColumnDefs.add(binDef);
-				} else {
-					log.error("Error in parsing binDef: " + binObj.toString());
-					return null;
+			JsonNode binObjList = mappingObj.get(Constants.BINLIST);
+			if (binObjList.isArray()) {
+				for (JsonNode binObj : binObjList) {
+					BinDefinition binDef = getBinDefs(binObj);
+					if (binDef != null) {
+						binColumnDefs.add(binDef);
+					} else {
+						log.error("Error in parsing binDef: " + RelaxedJsonMapper.jsonNodeToString(binObj));
+						return null;
+					}
 				}
 			}
 		} else {
@@ -243,7 +230,7 @@ public class Parser {
 	/*
 	 * Parsing Meta definition(for Set or Key) from config file and populate metaDef object.
 	 */
-	private static MetaDefinition getMetaDefs(JSONObject jobj, String jobjName) {
+	private static MetaDefinition getMetaDefs(JsonNode jobj, String jobjName) {
 		// Parsing Key, Set definition
 		ColumnDefinition valueDef = new ColumnDefinition(-1, null, null, null, null, null, null);
 		
@@ -253,14 +240,15 @@ public class Parser {
 			
 		} else if ((jobj.get(Constants.COLUMN_NAME)) != null) {
 			
-			valueDef.columnName = (String) (jobj.get(Constants.COLUMN_NAME));
+			valueDef.columnName = jobj.get(Constants.COLUMN_NAME).asText();
 
 		} else {
 			log.error("Column_name or pos info is missing. Specify proper key/set mapping in config file for: " + jobjName + ":"
-					+ jobj.toString());
+					+ RelaxedJsonMapper.jsonNodeToString(jobj));
 		}
 
-		valueDef.setSrcType((String) jobj.get(Constants.TYPE));
+		JsonNode typeNode = jobj.get(Constants.TYPE);
+		valueDef.setSrcType(typeNode != null ? typeNode.asText() : null);
 
 		// Default set type is 'string'. what is default key type?
 		if (Constants.SET.equalsIgnoreCase(jobjName) && valueDef.srcType == null) {
@@ -268,8 +256,9 @@ public class Parser {
 		}
 
 		// Get prefix to remove. Prefix will be removed from data
-		if ((jobj.get(Constants.REMOVE_PREFIX)) != null) {
-			valueDef.removePrefix = (String) jobj.get(Constants.REMOVE_PREFIX);
+		JsonNode prefixNode = jobj.get(Constants.REMOVE_PREFIX);
+		if (prefixNode != null) {
+			valueDef.removePrefix = prefixNode.asText();
 		}
 		
 		return new MetaDefinition(null, valueDef);
@@ -278,7 +267,7 @@ public class Parser {
 	/*
 	 * Parsing Bin definition from config file and populate BinDef object
 	 */
-	private static BinDefinition getBinDefs(JSONObject jobj) {
+	private static BinDefinition getBinDefs(JsonNode jobj) {
 		/*
 		 * Sample Bin object
 		 * {"name": "age", "value": {"column_name": "age", "type" : "integer"} }
@@ -290,23 +279,23 @@ public class Parser {
 		ColumnDefinition nameDef = new ColumnDefinition(-1, null, null, null, null, null, null);
 		String staticBinName = null;
 		
-		if ((obj = jobj.get(Constants.NAME)) == null) {
-			log.error(Constants.NAME + " key is missing object: " + jobj.toString());
+		JsonNode nameNode = jobj.get(Constants.NAME);
+		if (nameNode == null) {
+			log.error(Constants.NAME + " key is missing object: " + RelaxedJsonMapper.jsonNodeToString(jobj));
 			return null;
-		} else if (!(obj instanceof JSONObject)) {
-			staticBinName = (String) obj;
+		} else if (nameNode.isTextual()) {
+			staticBinName = nameNode.asText();
 		} else {
-			JSONObject nameObj = (JSONObject) obj;
-			if ((nameObj.get(Constants.COLUMN_POSITION)) != null) {
-				
-				nameDef.columnPos = (Integer.parseInt(nameObj.get(Constants.COLUMN_POSITION).toString()) - 1);
-				
-			} else if ((nameObj.get(Constants.COLUMN_NAME)) != null) {
-				
-				nameDef.columnName = (String) (nameObj.get(Constants.COLUMN_NAME));
-
+			JsonNode posNode = nameNode.get(Constants.COLUMN_POSITION);
+			if (posNode != null) {
+				nameDef.columnPos = (Integer.parseInt(posNode.asText()) - 1);
 			} else {
-				log.error("Column_name or pos info is missing. Specify proper bin name mapping in config file for: " + jobj.toString());
+				JsonNode colNameNode = nameNode.get(Constants.COLUMN_NAME);
+				if (colNameNode != null) {
+					nameDef.columnName = colNameNode.asText();
+				} else {
+					log.error("Column_name or pos info is missing. Specify proper bin name mapping in config file for: " + RelaxedJsonMapper.jsonNodeToString(jobj));
+				}
 			}
 		}
 
@@ -314,33 +303,40 @@ public class Parser {
 		ColumnDefinition valueDef = new ColumnDefinition(-1, null, null, null, null, null, null);
 		String staticBinValue = null;
 
-		if ((obj = jobj.get(Constants.VALUE)) == null) {
-			log.error(Constants.VALUE + " key is missing in bin object:" + jobj.toString());
+		JsonNode valueNode = jobj.get(Constants.VALUE);
+		if (valueNode == null) {
+			log.error(Constants.VALUE + " key is missing in bin object:" + RelaxedJsonMapper.jsonNodeToString(jobj));
 			return null;
-		} else if (!(obj instanceof JSONObject)) {
-			staticBinValue = (String) obj;
+		} else if (valueNode.isTextual()) {
+			staticBinValue = valueNode.asText();
 		} else {
-			JSONObject valueObj = (JSONObject) obj;
-			
-			if ((valueObj.get(Constants.COLUMN_POSITION)) != null) {
-				
-				valueDef.columnPos = (Integer.parseInt(valueObj.get(Constants.COLUMN_POSITION).toString()) - 1);
-				
-			} else if ((valueObj.get(Constants.COLUMN_NAME)) != null) {
-				
-				valueDef.columnName = (String) (valueObj.get(Constants.COLUMN_NAME));
-
+			JsonNode posNode = valueNode.get(Constants.COLUMN_POSITION);
+			if (posNode != null) {
+				valueDef.columnPos = (Integer.parseInt(posNode.asText()) - 1);
 			} else {
-				log.error("Column_name or pos info is missing. Specify proper bin value mapping in config file for: " + jobj.toString());
+				JsonNode colNameNode = valueNode.get(Constants.COLUMN_NAME);
+				if (colNameNode != null) {
+					valueDef.columnName = colNameNode.asText();
+
+				} else {
+					log.error("Column_name or pos info is missing. Specify proper bin value mapping in config file for: " + RelaxedJsonMapper.jsonNodeToString(jobj));
+				}
 			}
 			
-			valueDef.setSrcType((String) (valueObj.get(Constants.TYPE)));
+			JsonNode typeNode = valueNode.get(Constants.TYPE);
+			valueDef.setSrcType(typeNode != null ? typeNode.asText() : null);
 			if (valueDef.srcType == null) {
-				log.error(Constants.TYPE + " key is missing in bin object: " + jobj.toString());
+				log.error(Constants.TYPE + " key is missing in bin object: " + RelaxedJsonMapper.jsonNodeToString(jobj));
 			}
-			valueDef.setDstType((String) (valueObj.get(Constants.DST_TYPE)));
-			valueDef.encoding = (String) (valueObj.get(Constants.ENCODING));
-			valueDef.removePrefix = ((String) (valueObj.get(Constants.REMOVE_PREFIX)));
+			
+			JsonNode dstTypeNode = valueNode.get(Constants.DST_TYPE);
+			valueDef.setDstType(dstTypeNode != null ? dstTypeNode.asText() : null);
+			
+			JsonNode encodingNode = valueNode.get(Constants.ENCODING);
+			valueDef.encoding = encodingNode != null ? encodingNode.asText() : null;
+			
+			JsonNode prefixNode = valueNode.get(Constants.REMOVE_PREFIX);
+			valueDef.removePrefix = prefixNode != null ? prefixNode.asText() : null;
 		}
 		
 		return new BinDefinition(staticBinName, staticBinValue, nameDef, valueDef); 

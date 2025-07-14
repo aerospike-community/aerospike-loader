@@ -23,9 +23,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.io.IOException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -64,7 +63,7 @@ public class DataTypeTest {
 	String testSchemaFile = "src/test/resources/testSchema.json";
 	// String dataFile = "src/test/resources/data.csv";
 	String log = "aerospike-load.log";
-	JSONObject testSchema = null;
+	JsonNode testSchema = null;
 	AerospikeClient client;
 
 	@Before
@@ -105,18 +104,28 @@ public class DataTypeTest {
 		return recordDataList;
 	}
 	
-	public JSONObject parseConfigFile(String configFile) {
-		JSONParser parser = new JSONParser();
-		JSONObject jsonObject = null;
+	public JsonNode parseConfigFile(String configFile) {
+		JsonNode jsonNode = null;
 		try{
-			Object obj = parser.parse(new FileReader(configFile));
-			jsonObject = (JSONObject) obj;
+			jsonNode = RelaxedJsonMapper.parseJson(new FileReader(configFile));
 		} catch (IOException e) {
 			// Print error/abort/skip
-		} catch (ParseException e) {
-			// throw error/abort test/skip/test
 		}
-		return jsonObject;
+		return jsonNode;
+	}
+
+	// Helper method to convert JsonNode to HashMap<String, String>
+	private HashMap<String, String> getMapFromJsonNode(JsonNode node, String key) {
+		JsonNode childNode = node.get(key);
+		if (childNode != null) {
+			Map<String, Object> map = (Map<String, Object>) RelaxedJsonMapper.jsonNodeToObject(childNode);
+			HashMap<String, String> result = new HashMap<>();
+			for (Map.Entry<String, Object> entry : map.entrySet()) {
+				result.put(entry.getKey(), entry.getValue().toString());
+			}
+			return result;
+		}
+		return new HashMap<>();
 	}
 	
 	// String type data validation
@@ -129,7 +138,7 @@ public class DataTypeTest {
 		}
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_string");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_string");
 
 
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -161,7 +170,7 @@ public class DataTypeTest {
 		
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_integer");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_integer");
 
 
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -193,7 +202,7 @@ public class DataTypeTest {
 		
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_utf8");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_utf8");
 
 
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -224,7 +233,7 @@ public class DataTypeTest {
 		}
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_date");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_date");
 
 		
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -255,7 +264,7 @@ public class DataTypeTest {
 		}
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_blob");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_blob");
 
 		
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -286,7 +295,7 @@ public class DataTypeTest {
 		}
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_list");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_list");
 
 		
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -318,7 +327,7 @@ public class DataTypeTest {
 		
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_map");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_map");
 
 		
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -350,7 +359,7 @@ public class DataTypeTest {
 
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_json");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_json");
 
 		
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -382,7 +391,7 @@ public class DataTypeTest {
 
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_alltype");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_alltype");
 
 		
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -446,7 +455,7 @@ public class DataTypeTest {
 		
 		// Create datafile
 
-		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_map");
+		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_map");
 
 		
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
@@ -472,7 +481,7 @@ public class DataTypeTest {
 	// Helper functions
 	public void writeDataMap(String fileName, int nrecords, int setMod, int range, int seed,
 			HashMap<String, String> binMap) {
-		String delimiter = (String) testSchema.get("delimiter");
+		String delimiter = testSchema.get("delimiter").asText();
 		File file = new File(fileName);
 		// if file doesnt exists, then create it
 
@@ -530,7 +539,7 @@ public class DataTypeTest {
 		boolean valid = false;
 		Random r = new Random(seed);
 		int rint;
-		String as_binname_suffix = (String) testSchema.get("as_binname_suffix");
+		String as_binname_suffix = testSchema.get("as_binname_suffix").asText();
 
 		for (int i = 1; i <= nrecords; i++) {
 
@@ -720,7 +729,6 @@ public class DataTypeTest {
 			value = String.format("%d", i);
 			break;
 		case JSON:
-			JSONParser jsonParser = new JSONParser();
 			value = "{\"k1\": \"v1\", \"k2\": [\"lv1\", \"lv2\"], \"k3\": {\"mk1\": \"mv1\"}}";
 			break;
 		case LIST:
