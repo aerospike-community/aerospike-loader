@@ -83,7 +83,7 @@
 	  * @param lineSize   Size of the line to keep track of record processed 
 	  * @param client     AerospikeClient object
 	  * @param columns    List of column separated entries in this lineNumber
-	  * @param dsvConfigs  Map of DSV configurations
+	  * @param dsvConfig  Map of DSV configurations
 	  * @param mappingDef MappingDefinition of a mapping from config file
 	  * @param params     User given parameters
 	  * @param counters   Counter for stats
@@ -443,47 +443,49 @@
 	 }
 	 
 	 private Bin createBinForJson(String binName, String binRawValue) {
-		 try {
-			 log.debug(binRawValue);
-			 
-			 try {
-				 ObjectMapper standardMapper = new ObjectMapper();
-				 Object obj = standardMapper.readValue(binRawValue, Object.class);
-				 
-				 if (obj instanceof List) {
-					 List<?> jsonArray = (List<?>) obj;
-					 return new Bin(binName, jsonArray);
-				 } else if (obj instanceof Map) {
-					 Map<?, ?> jsonObj = (Map<?, ?>) obj;
- 
-					 if (this.params.unorderdMaps) {
-						 return new Bin(binName, jsonObj);
-					 }
- 
-					 try {
-						 TreeMap<Object, Object> sortedMap = new TreeMap<>();
-						 sortedMap.putAll(jsonObj);
-						 return new Bin(binName, sortedMap);
-					 } catch (ClassCastException e) {
-						 // Keys not comparable, fall back to unordered map
-						 log.debug("TreeMap failed due to non-comparable keys, using unordered map: " + e.getMessage());
-						 return new Bin(binName, jsonObj);
-					 }
-				 } else {
-					 return new Bin(binName, obj.toString());
-				 }
-			 } catch (JsonProcessingException standardParseException) {
-				 log.debug("Standard JSON parsing failed, using relaxed parser: " + standardParseException.getMessage());
-				 Map<Object, Object> relaxedResult = RelaxedJsonMapper.parseJsonWithKeyCoercion(binRawValue);
-				 return new Bin(binName, relaxedResult);
-			 }
-			 
-		 } catch (IOException e) {
-			 log.error("Failed to parse JSON: " + e);
-			 return null;
-		 }
-	 }
-	 
+		try {
+			log.debug(binRawValue);
+			
+			try {
+				ObjectMapper standardMapper = new ObjectMapper();
+				Object obj = standardMapper.readValue(binRawValue, Object.class);
+				
+				if (obj instanceof List) {
+					List<?> jsonArray = (List<?>) obj;
+					return new Bin(binName, jsonArray);
+				} else if (obj instanceof Map) {
+					Map<?, ?> jsonObj = (Map<?, ?>) obj;
+
+					if (this.params.unorderdMaps) {
+						return new Bin(binName, jsonObj);
+					}
+
+					try {
+						TreeMap<Object, Object> sortedMap = new TreeMap<>();
+						sortedMap.putAll(jsonObj);
+						return new Bin(binName, sortedMap);
+					} catch (ClassCastException e) {
+						// Keys not comparable, fall back to unordered map
+						log.debug("TreeMap failed due to non-comparable keys, using unordered map: " + e.getMessage());
+						return new Bin(binName, jsonObj);
+					}
+				} else {
+					return new Bin(binName, obj.toString());
+				}
+				
+			} catch (JsonProcessingException standardParseException) {
+				// Standard JSON parsing failed, fall back to relaxed parser
+				log.debug("Standard JSON parsing failed, using relaxed parser: " + standardParseException.getMessage());
+				Map<Object, Object> relaxedResult = RelaxedJsonMapper.parseJsonWithKeyCoercion(binRawValue);
+				return new Bin(binName, relaxedResult);
+			}
+			
+		} catch (IOException e) {
+			log.error("Failed to parse JSON: " + e);
+			return null;
+		}
+	}
+		 
 	 private Bin createBinForGeoJson(String binName, String binRawValue) {
 		 try {
 			 return new Bin(binName, Value.getAsGeoJSON(binRawValue));
@@ -616,4 +618,3 @@
  
 	 }
  }
- 
