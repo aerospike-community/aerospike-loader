@@ -83,7 +83,7 @@
 	  * @param lineSize   Size of the line to keep track of record processed 
 	  * @param client     AerospikeClient object
 	  * @param columns    List of column separated entries in this lineNumber
-	  * @param dsvConfig  Map of DSV configurations
+	  * @param dsvConfigs  Map of DSV configurations
 	  * @param mappingDef MappingDefinition of a mapping from config file
 	  * @param params     User given parameters
 	  * @param counters   Counter for stats
