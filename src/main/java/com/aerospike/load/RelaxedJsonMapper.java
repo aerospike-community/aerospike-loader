@@ -78,45 +78,7 @@ public class RelaxedJsonMapper {
      * @throws IOException if parsing fails
      */
     public static Map<Object, Object> parseJsonWithKeyCoercion(String json) throws IOException {
-        // First pass: everything is still strings for keys
-        Map<String, Object> intermediate = RELAXED_MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {});
-
-        // Second pass: coerce keys to proper types
-        Map<Object, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : intermediate.entrySet()) {
-            result.put(coerceKey(entry.getKey()), entry.getValue());
-        }
-        return result;
-    }
-
-    /**
-     * Tries to turn a textual key into Integer, Long, Double, or Boolean.
-     * Falls back to the original String if none match.
-     * @param key The string key to coerce
-     * @return The coerced key or original string if no coercion is possible
-     */
-    private static Object coerceKey(String key) {
-        try { 
-            return Integer.valueOf(key); 
-        } catch (NumberFormatException ignored) {}
-        
-        try { 
-            return Long.valueOf(key); 
-        } catch (NumberFormatException ignored) {}
-        
-        try { 
-            return Double.valueOf(key); 
-        } catch (NumberFormatException ignored) {}
-        
-        try { 
-            return Float.valueOf(key); 
-        } catch (NumberFormatException ignored) {}
-        
-        if ("true".equalsIgnoreCase(key) || "false".equalsIgnoreCase(key)) {
-            return Boolean.valueOf(key);
-        }
-        
-        return key; // leave it a String
+        return RELAXED_MAPPER.readValue(json, new TypeReference<Map<Object, Object>>() {});
     }
 
     /**

@@ -49,8 +49,6 @@ public class Parser {
 	 * @param  configFile     Config/schema/definition file name
 	 * @param  dsvConfigs     DSV configuration for loader to use, given in config file (version, n_columns, delimiter...)
 	 * @param  mappingDefs    List of schema/definitions for all mappings. primary + secondary mappings.
-	 * @param  params         User given parameters
-	 * @throws ParseException 
 	 * @throws IOException 
 	 */
 	public static boolean parseJSONColumnDefinitions(File configFile, HashMap<String, String> dsvConfigs,	List<MappingDefinition> mappingDefs) {
