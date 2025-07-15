@@ -33,14 +33,45 @@ public class RelaxedJsonMapperTest {
 
     @Test
     public void testParseJsonToList() throws Exception {
-        String json = "[1, 2, 'three', true]";
-        List<Object> list = RelaxedJsonMapper.parseJsonToList(json);
+        String json = "[1, 'two', true, {key: 'value'}]";
+        List<Object> result = RelaxedJsonMapper.parseJsonToList(json);
         
-        assertEquals(4, list.size());
+        assertEquals(4, result.size());
+        assertEquals(1, result.get(0));
+        assertEquals("two", result.get(1));
+        assertEquals(true, result.get(2));
+        
+        @SuppressWarnings("unchecked")
+        Map<String, Object> obj = (Map<String, Object>) result.get(3);
+        assertEquals("value", obj.get("key"));
+    }
+
+    @Test
+    public void testNestedObjectsInArraysWithNumericKeys() throws Exception {
+        String json = "[1, 2, {1: 'a', 2: 'b', true: 'flag'}]";
+        Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(json, true);
+        
+        assertTrue(result instanceof List);
+        @SuppressWarnings("unchecked")
+        List<Object> list = (List<Object>) result;
+        
+        assertEquals(3, list.size());
         assertEquals(1, list.get(0));
         assertEquals(2, list.get(1));
-        assertEquals("three", list.get(2));
-        assertEquals(true, list.get(3));
+        
+        // Check the nested object
+        assertTrue(list.get(2) instanceof Map);
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> nestedMap = (Map<Object, Object>) list.get(2);
+        
+        // Verify that numeric keys are preserved as numbers, not strings
+        assertEquals("a", nestedMap.get(1));  // Key should be integer 1, not string "1"
+        assertEquals("b", nestedMap.get(2));  // Key should be integer 2, not string "2"
+        assertEquals("flag", nestedMap.get(true));  // Key should be boolean true
+        
+        // Verify that string keys would not work (they should be coerced to numbers)
+        assertNull(nestedMap.get("1"));  // String "1" should not exist
+        assertNull(nestedMap.get("2"));  // String "2" should not exist
     }
 
     @Test

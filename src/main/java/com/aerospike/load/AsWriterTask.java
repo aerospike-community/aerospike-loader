@@ -35,8 +35,7 @@
  import org.apache.logging.log4j.Logger;
  import java.io.IOException;
  import java.util.Map;
- import com.fasterxml.jackson.databind.ObjectMapper;
- import com.fasterxml.jackson.core.JsonProcessingException;
+ 
  
  import com.aerospike.client.AerospikeClient;
  import com.aerospike.client.AerospikeException;
@@ -446,38 +445,18 @@
 		try {
 			log.debug(binRawValue);
 			
-			try {
-				ObjectMapper standardMapper = new ObjectMapper();
-				Object obj = standardMapper.readValue(binRawValue, Object.class);
-				
-				if (obj instanceof List) {
-					List<?> jsonArray = (List<?>) obj;
-					return new Bin(binName, jsonArray);
-				} else if (obj instanceof Map) {
-					Map<?, ?> jsonObj = (Map<?, ?>) obj;
-
-					if (this.params.unorderdMaps) {
-						return new Bin(binName, jsonObj);
-					}
-
-					try {
-						TreeMap<Object, Object> sortedMap = new TreeMap<>();
-						sortedMap.putAll(jsonObj);
-						return new Bin(binName, sortedMap);
-					} catch (ClassCastException e) {
-						// Keys not comparable, fall back to unordered map
-						log.debug("TreeMap failed due to non-comparable keys, using unordered map: " + e.getMessage());
-						return new Bin(binName, jsonObj);
-					}
-				} else {
-					return new Bin(binName, obj.toString());
-				}
-				
-			} catch (JsonProcessingException standardParseException) {
-				// Standard JSON parsing failed, fall back to relaxed parser
-				log.debug("Standard JSON parsing failed, using relaxed parser: " + standardParseException.getMessage());
-				Map<Object, Object> relaxedResult = RelaxedJsonMapper.parseJsonWithKeyCoercion(binRawValue);
-				return new Bin(binName, relaxedResult);
+			// Parse with relaxed mapper, handling arrays and objects appropriately
+			Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(binRawValue, this.params.unorderdMaps);
+			
+			if (result instanceof List) {
+				// JSON array
+				return new Bin(binName, (List<?>) result);
+			} else if (result instanceof Map) {
+				// JSON object (already ordered/unordered based on params)
+				return new Bin(binName, (Map<?, ?>) result);
+			} else {
+				// Primitive value
+				return new Bin(binName, result.toString());
 			}
 			
 		} catch (IOException e) {

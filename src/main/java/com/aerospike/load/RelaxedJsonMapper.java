@@ -78,7 +78,141 @@ public class RelaxedJsonMapper {
      * @throws IOException if parsing fails
      */
     public static Map<Object, Object> parseJsonWithKeyCoercion(String json) throws IOException {
-        return RELAXED_MAPPER.readValue(json, new TypeReference<Map<Object, Object>>() {});
+        // First parse as a regular map with string keys
+        Map<String, Object> stringKeyMap = RELAXED_MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {});
+        
+        // Create a new map with coerced keys
+        Map<Object, Object> coercedMap = new LinkedHashMap<>();
+        
+        for (Map.Entry<String, Object> entry : stringKeyMap.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            Object coercedKey = coerceKey(key);
+            coercedMap.put(coercedKey, value);
+        }
+        
+        return coercedMap;
+    }
+
+    /**
+     * Coerce a string key to its appropriate type (Integer, Long, Double, Boolean, or String).
+     * @param key The string key to coerce
+     * @return The coerced key object
+     */
+    private static Object coerceKey(String key) {
+        if (key == null) {
+            return key;
+        }
+        
+        // Try to parse as boolean
+        if ("true".equalsIgnoreCase(key)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(key)) {
+            return false;
+        }
+        
+        // Try to parse as integer
+        try {
+            if (!key.contains(".") && !key.contains("e") && !key.contains("E")) {
+                long longValue = Long.parseLong(key);
+                if (longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE) {
+                    return (int) longValue;
+                } else {
+                    return longValue;
+                }
+            }
+        } catch (NumberFormatException e) {
+            // Not an integer
+        }
+        
+        // Try to parse as double
+        try {
+            return Double.parseDouble(key);
+        } catch (NumberFormatException e) {
+            // Not a double
+        }
+        
+        // Return as string
+        return key;
+    }
+
+    /**
+     * Parse JSON string and return appropriate type based on content.
+     * For arrays: returns List<Object>
+     * For objects: returns Map<Object, Object> (ordered or unordered based on parameter)
+     * @param json JSON string to parse
+     * @param unorderedMaps if true, return unordered maps; if false, return TreeMap for objects
+     * @return List<Object> for arrays, Map<Object, Object> for objects, or primitive value
+     * @throws IOException if parsing fails
+     */
+    public static Object parseJsonWithTypeHandling(String json, boolean unorderedMaps) throws IOException {
+        JsonNode node = RELAXED_MAPPER.readTree(json);
+        return convertJsonNodeWithKeyCoercion(node, unorderedMaps);
+    }
+
+    /**
+     * Recursively convert a JsonNode to Java objects with key coercion applied.
+     * @param node The JsonNode to convert
+     * @param unorderedMaps if true, return unordered maps; if false, return TreeMap for objects
+     * @return The converted Java object with coerced keys
+     */
+    private static Object convertJsonNodeWithKeyCoercion(JsonNode node, boolean unorderedMaps) {
+        if (node == null || node.isNull()) {
+            return null;
+        } else if (node.isBoolean()) {
+            return node.asBoolean();
+        } else if (node.isInt()) {
+            return node.asInt();
+        } else if (node.isLong()) {
+            return node.asLong();
+        } else if (node.isFloat()) {
+            return node.floatValue();
+        } else if (node.isDouble()) {
+            return node.asDouble();
+        } else if (node.isTextual()) {
+            return node.asText();
+        } else if (node.isArray()) {
+            // Process array elements recursively
+            java.util.List<Object> list = new java.util.ArrayList<>();
+            for (JsonNode element : node) {
+                list.add(convertJsonNodeWithKeyCoercion(element, unorderedMaps));
+            }
+            return list;
+        } else if (node.isObject()) {
+            // Process object with key coercion and recursive value processing
+            Map<Object, Object> map = unorderedMaps ? 
+                new LinkedHashMap<>() : new LinkedHashMap<>(); // Start with LinkedHashMap, convert to TreeMap later if needed
+            
+            node.fields().forEachRemaining(entry -> {
+                String stringKey = entry.getKey();
+                JsonNode valueNode = entry.getValue();
+                
+                // Coerce the key
+                Object coercedKey = coerceKey(stringKey);
+                
+                // Recursively process the value
+                Object processedValue = convertJsonNodeWithKeyCoercion(valueNode, unorderedMaps);
+                
+                map.put(coercedKey, processedValue);
+            });
+            
+            // If ordered maps are requested, try to create a TreeMap
+            if (!unorderedMaps) {
+                try {
+                    java.util.TreeMap<Object, Object> sortedMap = new java.util.TreeMap<>();
+                    sortedMap.putAll(map);
+                    return sortedMap;
+                } catch (ClassCastException e) {
+                    // Keys not comparable, return unordered map
+                    return map;
+                }
+            }
+            
+            return map;
+        }
+        
+        return node.toString();
     }
 
     /**
