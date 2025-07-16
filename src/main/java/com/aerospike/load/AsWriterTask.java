@@ -444,16 +444,33 @@
 	 private Bin createBinForJson(String binName, String binRawValue) {
 		try {
 			log.debug(binRawValue);
-			
-			// Parse with relaxed mapper, handling arrays and objects appropriately
-			Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(binRawValue, this.params.unorderdMaps);
-			
+			log.info("Parsing JSON for bin: " + binName + " with raw value: " + binRawValue);
+			// Parse with relaxed mapper (always returns unordered maps)
+			Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(binRawValue);
+
 			if (result instanceof List) {
-				// JSON array
+				// JSON array - no ordering needed
 				return new Bin(binName, (List<?>) result);
 			} else if (result instanceof Map) {
-				// JSON object (already ordered/unordered based on params)
-				return new Bin(binName, (Map<?, ?>) result);
+				// JSON object - apply ordering logic based on params
+				Map<?, ?> jsonMap = (Map<?, ?>) result;
+				
+				if (this.params.unorderdMaps) {
+					// Return unordered map as-is
+					return new Bin(binName, jsonMap);
+				} else {
+					// Try to create ordered TreeMap
+					try {
+                        @SuppressWarnings("unchecked")
+						Map<Object, Object> castedMap = (Map<Object, Object>) jsonMap;
+                        TreeMap<Object, Object> sortedMap = new TreeMap<>(castedMap);
+						return new Bin(binName, sortedMap);
+					} catch (ClassCastException e) {
+						// Keys not comparable, fall back to unordered map
+                        log.warn("TreeMap failed due to non-comparable keys, using unordered map: {}", e.getMessage());
+						return new Bin(binName, jsonMap);
+					}
+				}
 			} else {
 				// Primitive value
 				return new Bin(binName, result.toString());

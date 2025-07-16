@@ -49,7 +49,7 @@ public class RelaxedJsonMapperTest {
     @Test
     public void testNestedObjectsInArraysWithNumericKeys() throws Exception {
         String json = "[1, 2, {1: 'a', 2: 'b', true: 'flag'}]";
-        Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(json, true);
+        Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(json);
         
         assertTrue(result instanceof List);
         @SuppressWarnings("unchecked")
@@ -72,6 +72,40 @@ public class RelaxedJsonMapperTest {
         // Verify that string keys would not work (they should be coerced to numbers)
         assertNull(nestedMap.get("1"));  // String "1" should not exist
         assertNull(nestedMap.get("2"));  // String "2" should not exist
+    }
+
+    @Test
+    public void testFieldOrderPreservation() throws Exception {
+        // Test the specific case mentioned by user: {2:"a","1":"b"}
+        String json = "{2: 'a', 1: 'b', 3: 'c'}";
+        Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(json);
+        
+        assertTrue(result instanceof Map);
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> map = (Map<Object, Object>) result;
+        
+        // Verify values are correct
+        assertEquals("a", map.get(2));
+        assertEquals("b", map.get(1));
+        assertEquals("c", map.get(3));
+        
+        // Verify that the map preserves insertion order
+        // Convert to array to check order
+        Object[] keys = map.keySet().toArray();
+        Object[] values = map.values().toArray();
+        
+        // Should be in insertion order: 2, 1, 3
+        assertEquals(2, keys[0]);
+        assertEquals(1, keys[1]);
+        assertEquals(3, keys[2]);
+        
+        assertEquals("a", values[0]);
+        assertEquals("b", values[1]);
+        assertEquals("c", values[2]);
+        
+        System.out.println("Original JSON: " + json);
+        System.out.println("Parsed result keys in order: " + java.util.Arrays.toString(keys));
+        System.out.println("Parsed result values in order: " + java.util.Arrays.toString(values));
     }
 
     @Test
