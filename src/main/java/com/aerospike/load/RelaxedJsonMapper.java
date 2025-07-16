@@ -157,14 +157,14 @@ public class RelaxedJsonMapper {
             return coerceKeysInList(list);
 //            return list;
         } else if (root.isObject()) {
-            Map<Object, Object> map = RELAXED_MAPPER.convertValue(root, new TypeReference<Map<Object, Object>>() {});
+            Map<String, Object> map = RELAXED_MAPPER.convertValue(root, new TypeReference<Map<String, Object>>() {});
             // Coerce keys to Integer/Long/Boolean/Double and build Map<Object,Object>
-//            return coerceKeysInMap(map);
-            for (Map.Entry<Object, Object> entry : map.entrySet()) {
-                log.info("Map entry: " + entry.getKey() + " -> " + entry.getValue());
-                log.info("Map types: " + entry.getKey().getClass().getSimpleName() + " -> " + entry.getValue().getClass().getSimpleName());
-            }
-            return map;
+            return coerceKeysInMap(map);
+//            for (Map.Entry<Object, Object> entry : map.entrySet()) {
+//                log.info("Map entry: " + entry.getKey() + " -> " + entry.getValue());
+//                log.info("Map types: " + entry.getKey().getClass().getSimpleName() + " -> " + entry.getValue().getClass().getSimpleName());
+//            }
+//            return map;
         } else {
             // Primitive value
             return RELAXED_MAPPER.convertValue(root, Object.class);
@@ -206,35 +206,35 @@ public class RelaxedJsonMapper {
      * @param map The map to process
      * @return Map<Object, Object> with coerced keys
      */
-//    private static Map<Object, Object> coerceKeysInMap(Map<Object, Object> map) {
-//        Map<Object, Object> result = new LinkedHashMap<>(); // Preserves insertion order
-//
-//        for (Map.Entry<Object, Object> entry : map.entrySet()) {
-//            Object stringKey = entry.getKey();
-//            Object value = entry.getValue();
-//
-//            // Coerce the key
-//            Object coercedKey = coerceKey(stringKey);
-//
-//            // Recursively process nested structures
-//            Object processedValue;
-//            if (value instanceof Map) {
-//                @SuppressWarnings("unchecked")
-//                Map<String, Object> mapValue = (Map<String, Object>) value;
-//                processedValue = coerceKeysInMap(mapValue);
-//            } else if (value instanceof List) {
-//                @SuppressWarnings("unchecked")
-//                List<Object> listValue = (List<Object>) value;
-//                processedValue = coerceKeysInList(listValue);
-//            } else {
-//                processedValue = value;
-//            }
-//
-//            result.put(coercedKey, processedValue);
-//        }
-//
-//        return result;
-//    }
+    private static Map<Object, Object> coerceKeysInMap(Map<String, Object> map) {
+        Map<Object, Object> result = new LinkedHashMap<>(); // Preserves insertion order
+
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            String stringKey = entry.getKey();
+            Object value = entry.getValue();
+
+            // Coerce the key
+            Object coercedKey = coerceKey(stringKey);
+
+            // Recursively process nested structures
+            Object processedValue;
+            if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> mapValue = (Map<String, Object>) value;
+                processedValue = coerceKeysInMap(mapValue);
+            } else if (value instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Object> listValue = (List<Object>) value;
+                processedValue = coerceKeysInList(listValue);
+            } else {
+                processedValue = value;
+            }
+
+            result.put(coercedKey, processedValue);
+        }
+
+        return result;
+    }
 
     /**
      * Convert a JsonNode to a Java object (Map, List, or primitive).
