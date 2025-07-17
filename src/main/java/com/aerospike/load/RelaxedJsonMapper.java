@@ -44,60 +44,6 @@ public class RelaxedJsonMapper {
     }
 
     /**
-     * Parse JSON from a string.
-     * @param json JSON string
-     * @return JsonNode representing the parsed JSON
-     * @throws IOException if parsing fails
-     */
-    public static JsonNode parseJson(String json) throws IOException {
-        return RELAXED_MAPPER.readTree(json);
-    }
-
-    /**
-     * Parse JSON string into a Map<String, Object>.
-     * @param json JSON string
-     * @return Map representation of the JSON
-     * @throws IOException if parsing fails
-     */
-    public static Map<String, Object> parseJsonToMap(String json) throws IOException {
-        return RELAXED_MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {});
-    }
-
-    /**
-     * Parse JSON string into a List<Object>.
-     * @param json JSON string
-     * @return List representation of the JSON
-     * @throws IOException if parsing fails
-     */
-    public static List<Object> parseJsonToList(String json) throws IOException {
-        return RELAXED_MAPPER.readValue(json, new TypeReference<List<Object>>() {});
-    }
-
-    /**
-     * Parse JSON with automatic key type coercion (similar to the sample code).
-     * This method converts string keys to appropriate types (Integer, Long, Double, Boolean).
-     * @param json JSON string
-     * @return Map<Object, Object> with coerced keys
-     * @throws IOException if parsing fails
-     */
-    public static Map<Object, Object> parseJsonWithKeyCoercion(String json) throws IOException {
-        // First parse as a regular map with string keys
-        Map<String, Object> stringKeyMap = RELAXED_MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {});
-        
-        // Create a new map with coerced keys
-        Map<Object, Object> coercedMap = new LinkedHashMap<>();
-        
-        for (Map.Entry<String, Object> entry : stringKeyMap.entrySet()) {
-            String key = entry.getKey();
-            Object value = entry.getValue();
-            Object coercedKey = coerceKey(key);
-            coercedMap.put(coercedKey, value);
-        }
-        
-        return coercedMap;
-    }
-
-    /**
      * Coerce a string key to its appropriate type (Integer, Long, Double, Boolean, or String).
      * @param key The string key to coerce
      * @return The coerced key object
@@ -155,16 +101,10 @@ public class RelaxedJsonMapper {
             List<Object> list = RELAXED_MAPPER.convertValue(root, new TypeReference<List<Object>>() {});
             // Walk list and coerce any map keys in nested objects
             return coerceKeysInList(list);
-//            return list;
         } else if (root.isObject()) {
             Map<String, Object> map = RELAXED_MAPPER.convertValue(root, new TypeReference<Map<String, Object>>() {});
             // Coerce keys to Integer/Long/Boolean/Double and build Map<Object,Object>
             return coerceKeysInMap(map);
-//            for (Map.Entry<Object, Object> entry : map.entrySet()) {
-//                log.info("Map entry: " + entry.getKey() + " -> " + entry.getValue());
-//                log.info("Map types: " + entry.getKey().getClass().getSimpleName() + " -> " + entry.getValue().getClass().getSimpleName());
-//            }
-//            return map;
         } else {
             // Primitive value
             return RELAXED_MAPPER.convertValue(root, Object.class);
@@ -179,17 +119,10 @@ public class RelaxedJsonMapper {
     private static List<Object> coerceKeysInList(List<Object> list) {
         List<Object> result = new java.util.ArrayList<>();
         for (Object item : list) {
-            log.info("Processing item: " + item);
-            log.info("Item type: " + (item != null ? item.getClass().getSimpleName() : "null"));
             if (item instanceof Map) {
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) item).entrySet()) {
-                    log.info("Map entry: " + entry.getKey() + " -> " + entry.getValue());
-                    log.info("Map entry: " + entry.getKey().getClass().getSimpleName() + " -> " + entry.getValue().getClass().getSimpleName());
-                }
-//                @SuppressWarnings("unchecked")
-//                Map<String, Object> mapItem = (Map<String, Object>) item;
-//                result.add(coerceKeysInMap(mapItem));
-                result.add(item);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> mapItem = (Map<String, Object>) item;
+                result.add(coerceKeysInMap(mapItem));
             } else if (item instanceof List) {
                 @SuppressWarnings("unchecked")
                 List<Object> listItem = (List<Object>) item;
@@ -275,16 +208,6 @@ public class RelaxedJsonMapper {
             return null;
         }
         return jsonNodeToObject(node.get(fieldName));
-    }
-
-    /**
-     * Check if a JsonNode has a specific field.
-     * @param node The JsonNode to check
-     * @param fieldName The name of the field
-     * @return true if the field exists, false otherwise
-     */
-    public static boolean hasField(JsonNode node, String fieldName) {
-        return node != null && node.has(fieldName);
     }
 
     /**

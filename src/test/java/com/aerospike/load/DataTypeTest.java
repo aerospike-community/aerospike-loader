@@ -47,9 +47,9 @@ enum BinType {
  *
  */
 public class DataTypeTest {
-	
+
 	String host = "127.0.0.1";
-	String port = "3100";
+	String port = "3000";
 	String ns = "test";
 	String set = null;
 	MapOrder expectedMapOrder = MapOrder.KEY_ORDERED;
@@ -83,7 +83,7 @@ public class DataTypeTest {
 	public void tearDown() {
 		client.close();
 	}
-	
+
 	public List<List<String>> parseDataFile(String dataFile) {
 		BufferedReader br = null;
 		String delimiter = ",";
@@ -103,7 +103,7 @@ public class DataTypeTest {
 		}
 		return recordDataList;
 	}
-	
+
 	public JsonNode parseConfigFile(String configFile) {
 		JsonNode jsonNode = null;
 		try{
@@ -127,7 +127,7 @@ public class DataTypeTest {
 		}
 		return new HashMap<>();
 	}
-	
+
 	// String type data validation
 	//@Test
 	public void testValidateString() throws Exception {
@@ -143,19 +143,19 @@ public class DataTypeTest {
 
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataString.dsv";
-		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);	
-		
-		// Run Aerospike loader		
+		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
+
+		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configString.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = null;
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
 		boolean error = getError(log);
-		
+
 		assertTrue(dataValid);
 		assertTrue(!error);
-		
+
 		System.out.println("TestValidateString: Complete");
 	}
 
@@ -167,7 +167,7 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-		
+
 		// Create datafile
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_integer");
@@ -175,19 +175,19 @@ public class DataTypeTest {
 
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataInt.dsv";
-		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);	
-		
+		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
+
 		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configInt.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = null;
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
 		boolean error = getError(log);
-		
+
 		assertTrue(dataValid);
 		assertTrue(!error);
-		
+
 		System.out.println("TestValidateInteger: Complete");
 	}
 
@@ -199,7 +199,7 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-		
+
 		// Create datafile
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_utf8");
@@ -208,18 +208,18 @@ public class DataTypeTest {
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataUtf8.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
+
 		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configUtf8.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = null;
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
 		boolean error = getError(log);
-		
+
 		assertTrue(dataValid);
 		assertTrue(!error);
-			
+
 		System.out.println("TestValidateStringutf8: Complete");
 	}
 
@@ -235,22 +235,22 @@ public class DataTypeTest {
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_date");
 
-		
+
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataDate.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
+
 		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configDate.json", dataFile});
-		
+
 		// Validate loaded data
-		String dst_type = "integer";	
+		String dst_type = "integer";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dst_type);
 		boolean error = getError(log);
-			
+
 		assertTrue(dataValid);
 		assertTrue(!error);
-				
+
 		System.out.println("TestValidateTimestampInteger: Complete");
 	}
 
@@ -266,22 +266,22 @@ public class DataTypeTest {
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_blob");
 
-		
+
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataBlob.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
-		// Run Aerospike loader		
+
+		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configBlob.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = "blob";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
 		boolean error = getError(log);
-		
+
 		assertTrue(dataValid);
 		assertTrue(!error);
-			
+
 		System.out.println("TestValidateBlob: Complete");
 	}
 
@@ -297,14 +297,14 @@ public class DataTypeTest {
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_list");
 
-		
+
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataList.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
+
 		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configList.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = "list";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -324,19 +324,19 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-		
+
 		// Create datafile
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_map");
 
-		
+
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataMap.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
+
 		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configMap.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = "map";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -361,14 +361,14 @@ public class DataTypeTest {
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_json");
 
-		
+
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataJson.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
+
 		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-v", "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configJson.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = "json";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -393,18 +393,18 @@ public class DataTypeTest {
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_alltype");
 
-		
+
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "configAllDataType.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
+
 		// Run Aerospike loader
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configAllDataType.json", dataFile});
-		
+
 		boolean error = getError(log);
 
 		assertTrue(!error);
-			
+
 		System.out.println("TestAllDatatype: Complete");
 	}
 
@@ -416,13 +416,13 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-			
+
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configDynamicBinName.json", "src/test/resources/dataDynamicBin.csv"});
 
 		boolean error = getError(log);
 
 		assertTrue(!error);
-				
+
 		System.out.println("Test Dynamic BinName: Complete");
 	}
 
@@ -434,13 +434,13 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-	
+
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configStaticBinName.json", "src/test/resources/dataStaticBin.csv"});
 
 		boolean error = getError(log);
 
 		assertTrue(!error);
-					
+
 		System.out.println("Test static BinName: Complete");
 	}
 
@@ -452,20 +452,20 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-		
+
 		// Create datafile
 
 		HashMap<String, String> binMap = getMapFromJsonNode(testSchema, "test_map");
 
-		
+
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataMap.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
+
 		// Run Aerospike loader
 		this.expectedMapOrder = MapOrder.UNORDERED;
 		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action, "-um", "-c", "src/test/resources/configMap.json", dataFile});
-		
+
 		// Validate loaded data
 		String dstType = "map";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -549,7 +549,7 @@ public class DataTypeTest {
 			Bin bin1 = null;
 			String bin1Type = null;
 			Record record = null;
-			
+
 			rint = r.nextInt(range);
 
 			Iterator<Entry<String, String>> iterator = binMap.entrySet().iterator();
@@ -630,7 +630,7 @@ public class DataTypeTest {
 			} catch (java.text.ParseException e) {
 				e.printStackTrace();
 			}
-			
+
 		} else if (dstType != null && dstType.equalsIgnoreCase("blob")) {
 			expected = convertHexToString(bin.value.toString());
 			received = new String((byte[]) received);
@@ -664,7 +664,7 @@ public class DataTypeTest {
 		} else {
 			expected = bin.value.toString();
 		}
-		
+
 		if (received != null && received.toString().equals(expected)) {
 			System.out.println(String.format(
 					"Bin matched: namespace=%s set=%s key=%s bin=%s value=%s generation=%d expiration=%d",
@@ -678,7 +678,7 @@ public class DataTypeTest {
 		return valid;
 	}
 
-	
+
 	/**
 	 * @param log log file name
 	 * @return return true if get any error
@@ -710,7 +710,7 @@ public class DataTypeTest {
 		}
 		return error;
 	}
-	
+
 	/**
 	 * @param binName binName prefix
 	 * @param binType type of binValue

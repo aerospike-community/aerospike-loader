@@ -35,7 +35,8 @@
  import org.apache.logging.log4j.Logger;
  import java.io.IOException;
  import java.util.Map;
- 
+ import com.fasterxml.jackson.databind.ObjectMapper;
+ import com.fasterxml.jackson.core.JsonProcessingException;
  
  import com.aerospike.client.AerospikeClient;
  import com.aerospike.client.AerospikeException;
@@ -444,36 +445,39 @@
 	 private Bin createBinForJson(String binName, String binRawValue) {
 		try {
 			log.debug(binRawValue);
-			log.info("Parsing JSON for bin: " + binName + " with raw value: " + binRawValue);
-			// Parse with relaxed mapper (always returns unordered maps)
-			Object result = RelaxedJsonMapper.parseJsonWithTypeHandling(binRawValue);
+			
+			Object parsedObject = null;
+			
+			try {
+				ObjectMapper standardMapper = new ObjectMapper();
+				parsedObject = standardMapper.readValue(binRawValue, Object.class);
+				log.debug("Successfully parsed with standard JSON parser");
+			} catch (JsonProcessingException standardParseException) {
+				log.debug("Standard JSON parsing failed, using relaxed parser: " + standardParseException.getMessage());
+				parsedObject = RelaxedJsonMapper.parseJsonWithTypeHandling(binRawValue);
+			}
+			
+			// Apply the same logic regardless of which parser was used
+			if (parsedObject instanceof List) {
+				List<?> jsonArray = (List<?>) parsedObject;
+				return new Bin(binName, jsonArray);
+			} else if (parsedObject instanceof Map) {
+				Map<?, ?> jsonObj = (Map<?, ?>) parsedObject;
 
-			if (result instanceof List) {
-				// JSON array - no ordering needed
-				return new Bin(binName, (List<?>) result);
-			} else if (result instanceof Map) {
-				// JSON object - apply ordering logic based on params
-				Map<?, ?> jsonMap = (Map<?, ?>) result;
-				
 				if (this.params.unorderdMaps) {
-					// Return unordered map as-is
-					return new Bin(binName, jsonMap);
-				} else {
-					// Try to create ordered TreeMap
-					try {
-                        @SuppressWarnings("unchecked")
-						Map<Object, Object> castedMap = (Map<Object, Object>) jsonMap;
-                        TreeMap<Object, Object> sortedMap = new TreeMap<>(castedMap);
-						return new Bin(binName, sortedMap);
-					} catch (ClassCastException e) {
-						// Keys not comparable, fall back to unordered map
-                        log.warn("TreeMap failed due to non-comparable keys, using unordered map: {}", e.getMessage());
-						return new Bin(binName, jsonMap);
-					}
+					return new Bin(binName, jsonObj);
+				}
+
+				try {
+					TreeMap<Object, Object> sortedMap = new TreeMap<>();
+					sortedMap.putAll(jsonObj);
+					return new Bin(binName, sortedMap);
+				} catch (ClassCastException e) {
+					log.debug("TreeMap failed due to non-comparable keys, using unordered map: " + e.getMessage());
+					return new Bin(binName, jsonObj);
 				}
 			} else {
-				// Primitive value
-				return new Bin(binName, result.toString());
+				return new Bin(binName, parsedObject.toString());
 			}
 			
 		} catch (IOException e) {
