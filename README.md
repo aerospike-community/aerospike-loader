@@ -6,6 +6,7 @@
 > those .DSV files and load data in Aerospike Server according to given schema
 > in schema files.
 
+- [Community Development](#CommunityDevelopment)
 - [Prerequisites](#Prerequisites)
 - [Installation](#Installation)
 - [Dependencies](#Dependencies)
@@ -17,6 +18,13 @@
     - [Demo example](#demoexample)
     - [Detailed examples](doc/examples.md)
 - [Release Notes](doc/releasenotes.md)
+- [License](#License)
+
+<a name="CommunityDevelopment"></a>
+## Aerospike Loader Community Development
+Aerospike Loader has been turned over to the community. If you wish to contribute code, go ahead and clone this repo, modify the code, and create a pull request.
+Active contributors can then ask to become maintainers for the repo. The wiki can similarly be modified by any code contributor who has been granted pull permissions.
+
 
 <a name="Prerequisites"></a>
 ## Prerequisites
@@ -95,3 +103,7 @@ Example directory contains two files: allDatatype.json and data.csv. Run the fol
     ./run_loader -h localhost -c example/alldatatype.json example/alldatatype.dsv
 
 For more examples, see the examples/README.md.
+
+<a name="License"></a>
+## License
+The Aerospike Loader is released under the [Apache License, Version 2.0](LICENSE).
