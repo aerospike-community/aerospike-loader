@@ -1,6 +1,7 @@
 package com.aerospike.load;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -29,6 +30,7 @@ import org.json.simple.parser.ParseException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import com.github.stefanbirkner.systemlambda.SystemLambda;
 
 import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.AerospikeException;
@@ -118,9 +120,41 @@ public class DataTypeTest {
 		}
 		return jsonObject;
 	}
-	
+
+        @Test
+	public void testInvalidConfig() throws Exception {
+		System.out.println("TestInvalidConfig: start");
+		if(!client.isConnected()) {
+			System.out.println("Client is not able to connect:" + host + ":" + port);
+			return;
+		}
+		// Create datafile
+
+		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_string");
+
+		int setMod = 5, range = 100, seed = 10, nrecords = 10;
+		dataFile = rootDir + "dataString.dsv";
+		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
+
+		// Run Aerospike loader
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "/non/existing/config.json", dataFile});
+		});
+
+		// Validate loaded data
+		String dstType = null;
+		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
+		boolean error = getError(log);
+
+		assertTrue(dataValid);
+		assertTrue(!error);
+		assertEquals(-1, exitCode, "Unexpected exit code");
+
+		System.out.println("TestInvalidConfig: Complete");
+	}
+
 	// String type data validation
-	//@Test
+	@Test
 	public void testValidateString() throws Exception {
 		System.out.println("TestValidateString: start");
 		if(!client.isConnected()) {
@@ -131,14 +165,15 @@ public class DataTypeTest {
 
 		HashMap<String, String> binMap = (HashMap<String, String>) testSchema.get("test_string");
 
-
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataString.dsv";
-		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);	
-		
-		// Run Aerospike loader		
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configString.json", dataFile});
-		
+		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
+
+		// Run Aerospike loader
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configString.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = null;
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -146,7 +181,8 @@ public class DataTypeTest {
 		
 		assertTrue(dataValid);
 		assertTrue(!error);
-		
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("TestValidateString: Complete");
 	}
 
@@ -166,11 +202,13 @@ public class DataTypeTest {
 
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataInt.dsv";
-		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);	
+		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);  
 		
 		// Run Aerospike loader
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configInt.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configInt.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = null;
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -178,7 +216,8 @@ public class DataTypeTest {
 		
 		assertTrue(dataValid);
 		assertTrue(!error);
-		
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("TestValidateInteger: Complete");
 	}
 
@@ -201,8 +240,10 @@ public class DataTypeTest {
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
 		
 		// Run Aerospike loader
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configUtf8.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configUtf8.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = null;
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -210,7 +251,8 @@ public class DataTypeTest {
 		
 		assertTrue(dataValid);
 		assertTrue(!error);
-			
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("TestValidateStringutf8: Complete");
 	}
 
@@ -232,8 +274,10 @@ public class DataTypeTest {
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
 		
 		// Run Aerospike loader
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configDate.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configDate.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dst_type = "integer";	
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dst_type);
@@ -241,7 +285,8 @@ public class DataTypeTest {
 			
 		assertTrue(dataValid);
 		assertTrue(!error);
-				
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("TestValidateTimestampInteger: Complete");
 	}
 
@@ -261,10 +306,12 @@ public class DataTypeTest {
 		int setMod = 5, range = 100, seed = 10, nrecords = 10;
 		dataFile = rootDir + "dataBlob.dsv";
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
-		
-		// Run Aerospike loader		
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configBlob.json", dataFile});
-		
+
+		// Run Aerospike loader
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configBlob.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = "blob";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -272,7 +319,8 @@ public class DataTypeTest {
 		
 		assertTrue(dataValid);
 		assertTrue(!error);
-			
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("TestValidateBlob: Complete");
 	}
 
@@ -294,8 +342,10 @@ public class DataTypeTest {
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
 		
 		// Run Aerospike loader
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configList.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configList.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = "list";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -303,6 +353,7 @@ public class DataTypeTest {
 
 		assertTrue(dataValid);
 		assertTrue(!error);
+		assertEquals(0, exitCode, "Unexpected exit code");
 
 		System.out.println("TestValidateList: Complete");
 	}
@@ -326,8 +377,10 @@ public class DataTypeTest {
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
 		
 		// Run Aerospike loader
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configMap.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configMap.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = "map";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -335,6 +388,7 @@ public class DataTypeTest {
 
 		assertTrue(dataValid);
 		assertTrue(!error);
+		assertEquals(0, exitCode, "Unexpected exit code");
 
 		System.out.println("TestValidateMap: Complete");
 	}
@@ -358,8 +412,10 @@ public class DataTypeTest {
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
 		
 		// Run Aerospike loader
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-v", "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configJson.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-v", "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configJson.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = "json";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -367,6 +423,7 @@ public class DataTypeTest {
 
 		assertTrue(dataValid);
 		assertTrue(!error);
+		assertEquals(0, exitCode, "Unexpected exit code");
 
 		System.out.println("TestValidateJSON: Complete");
 	}
@@ -390,12 +447,15 @@ public class DataTypeTest {
 		writeDataMap(dataFile, nrecords, setMod, range, seed, binMap);
 		
 		// Run Aerospike loader
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configAllDataType.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configAllDataType.json", dataFile});
+		});
+
 		boolean error = getError(log);
 
 		assertTrue(!error);
-			
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("TestAllDatatype: Complete");
 	}
 
@@ -407,13 +467,17 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-			
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configDynamicBinName.json", "src/test/resources/dataDynamicBin.csv"});
+
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configDynamicBinName.json", "src/test/resources/dataDynamicBin.csv"});
+		});
+
 
 		boolean error = getError(log);
 
 		assertTrue(!error);
-				
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("Test Dynamic BinName: Complete");
 	}
 
@@ -425,13 +489,17 @@ public class DataTypeTest {
 			System.out.println("Client is not able to connect:" + host + ":" + port);
 			return;
 		}
-	
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configStaticBinName.json", "src/test/resources/dataStaticBin.csv"});
+
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action,"-c", "src/test/resources/configStaticBinName.json", "src/test/resources/dataStaticBin.csv"});
+		});
+
 
 		boolean error = getError(log);
 
 		assertTrue(!error);
-					
+		assertEquals(0, exitCode, "Unexpected exit code");
+
 		System.out.println("Test static BinName: Complete");
 	}
 
@@ -455,8 +523,10 @@ public class DataTypeTest {
 		
 		// Run Aerospike loader
 		this.expectedMapOrder = MapOrder.UNORDERED;
-		AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action, "-um", "-c", "src/test/resources/configMap.json", dataFile});
-		
+		int exitCode = SystemLambda.catchSystemExit(() -> {
+			AerospikeLoad.main(new String[]{"-h", host,"-p", port,"-n", ns, "-ec", error_count,"-wa", write_action, "-um", "-c", "src/test/resources/configMap.json", dataFile});
+		});
+
 		// Validate loaded data
 		String dstType = "map";
 		boolean dataValid = validateMap(client, dataFile, nrecords, setMod, range, seed, binMap, dstType);
@@ -464,6 +534,7 @@ public class DataTypeTest {
 
 		assertTrue(dataValid);
 		assertTrue(!error);
+		assertEquals(0, exitCode, "Unexpected exit code");
 		this.expectedMapOrder = MapOrder.KEY_ORDERED;
 
 		System.out.println("TestValidateMap: Complete");

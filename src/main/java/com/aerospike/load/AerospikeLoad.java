@@ -41,6 +41,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -104,143 +105,145 @@ public class AerospikeLoad implements Runnable {
 		}
 	}
 
-	public static void main(String[] args) throws IOException {
-		long processStart = System.currentTimeMillis();
+        public static void main(String[] args) throws IOException {
+	    int exitCode = -1;
+	    try {
+	        CommandLine cl = parseArgs(args);
+	        exitCode = launch(cl);
+	    } catch (Exception e) {
+	        if (log.isDebugEnabled()) {
+		    e.printStackTrace();
+	        }
+	    }
+	    System.exit(exitCode);
+        }
 
-		AerospikeClient client = null;
-		counters = new Counter();
-		CommandLine cl;
-		
-		try {
-			Options options = new Options();
-			options.addOption("h", "hosts", true,
-					"List of seed hosts in format:\n" +
-					"hostname1[:tlsname][:port1],...\n" +
-					"The tlsname is only used when connecting with a secure TLS enabled server. " +
-					"If the port is not specified, the default port is used.\n" +
-					"IPv6 addresses must be enclosed in square brackets.\n" +
-					"Default: localhost\n" + 
-					"Examples:\n" + 
-					"host1\n" + 
-					"host1:3000,host2:3000\n" + 
-					"192.168.1.10:cert1:3000,[2001::1111]:cert2:3000\n"
-					);
-			options.addOption("V", "version", false, "Aerospike Loader Version");
-			options.addOption("p", "port", true, "Server port (default: 3000)");
-			options.addOption("U", "user", true, "User name");
-			options.addOption("P", "password", true, "Password");
-			options.addOption("n", "namespace", true, "Namespace (default: test)");
-			options.addOption("c", "config", true, "Column definition file name");
-			options.addOption("g", "max-throughput", true, "It limit numer of writes/sec in aerospike.");
-			options.addOption("T", "transaction-timeout", true, "write transaction timeout in milliseconds(default: No timeout)");
-			options.addOption("e", "expirationTime", true,
-					"Set expiration time of each record in seconds." +
-					" -1: Never expire, " +
-					"  0: Default to namespace," +
-					" >0: Actual given expiration time"
-					);
-			options.addOption("tz", "timezone", true, "Timezone of source where data dump is taken (default: local timezone)");
-			options.addOption("ec", "abort-error-count", true, "Error count to abort (default: 0)");
-			options.addOption("wa", "write-action", true, "Write action if key already exists (default: update)");
-			options.addOption("sa", "services_alternate", false, "Enable alternate services.");
-			options.addOption("tls", "tls-enable", false, "Use TLS/SSL sockets");
-			options.addOption("tp", "tls-protocols", true, 
-					"Allow TLS protocols\n" +
-					"Values:  TLSv1,TLSv1.1,TLSv1.2 separated by comma\n" +
-					"Default: TLSv1.2"
-					);
-			options.addOption("tlsCiphers", "tls-cipher-suite", true, 
-					"Allow TLS cipher suites\n" +
-					"Values:  cipher names defined by JVM separated by comma\n" +
-					"Default: null (default cipher list provided by JVM)"
-					);
-			options.addOption("tr", "tlsRevoke", true, 
-					"Revoke certificates identified by their serial number\n" +
-					"Values:  serial numbers separated by comma\n" +
-					"Default: null (Do not revoke certificates)"
-					);
+        public static int launch(CommandLine cl) throws Exception {
+	    long processStart = System.currentTimeMillis();
 
-			options.addOption("tlsLoginOnly", false, "Use TLS/SSL sockets on node login only");
-			options.addOption("auth", true, "Authentication mode. Values: " + Arrays.toString(AuthMode.values()));
+	    AerospikeClient client = null;
+	    statPrinter = new Thread(new PrintStat(counters));
+	    // Create Abstract derived params from provided commandline params.
+	    params = Utils.parseParameters(cl);
+	    if (params.verbose) {
+	        Configurator.setAllLevels(LogManager.getRootLogger().getName(), Level.DEBUG);
+	    }
 
-			options.addOption("uk", "send-user-key", false, 
-					"Send user defined key in addition to hash digest to store on the server. (default: userKey is not sent to reduce meta-data overhead)"
-					);
-			options.addOption("v", "verbose", false, "Logging all");
-			options.addOption("um", "unorderdMaps", false, "Write all maps as unorderd maps");
-			options.addOption("u", "usage", false, "Print usage.");
+	    initReadWriteThreadCnt(cl);
 
-			CommandLineParser parser = new PosixParser();
-			cl = parser.parse(options, args, false);
-	        
-			if (args.length == 0 || cl.hasOption("u")) {
-				printUsage(options);
-				return;
-			}
+	    // Get and validate user roles for client.
+	    client = getAerospikeClient(cl);
+	    if (client == null) {
+	        return -1;
+	    }
 
-			if (cl.hasOption("V")) {
-				printVersion();
-				return;
-			}
-		} catch (Exception e) {
-			log.error(e);
-			if (log.isDebugEnabled()) {
-				e.printStackTrace();
-			}
-			return;
-		}
+	    List<String> dataFileNames = new ArrayList<String>();
+	    initDataFileNameList(cl, dataFileNames);
+	    if (dataFileNames.size() == 0) {
+	        return -1;
+	    }
 
-		try {
-			statPrinter = new Thread(new PrintStat(counters));
-			// Create Abstract derived params from provided commandline params.
-			params = Utils.parseParameters(cl);
-			if (params.verbose) {
-				Configurator.setAllLevels(LogManager.getRootLogger().getName(), Level.DEBUG);
-			}
-			
-			initReadWriteThreadCnt(cl);
+	    // Remove column definition file from list. if directory containing config file is passed.
+	    String columnDefinitionFileName = cl.getOptionValue("c", "");
+	    dataFileNames.remove(columnDefinitionFileName);
+	    log.info("Number of data files:" + dataFileNames.size());
 
-			// Get and validate user roles for client.
-			client = getAerospikeClient(cl);
-			if (client == null) {
-				return;
-			}
-						
-			List<String> dataFileNames = new ArrayList<String>();
-			initDataFileNameList(cl, dataFileNames);
-			if (dataFileNames.size() == 0) {
-				return;
-			}
+	    initBytesToRead(dataFileNames);
 
-			// Remove column definition file from list. if directory containing config file is passed.
-			String columnDefinitionFileName = cl.getOptionValue("c", "");
-			dataFileNames.remove(columnDefinitionFileName);
-			log.info("Number of data files:" + dataFileNames.size());
-			
-			initBytesToRead(dataFileNames);
+	    log.info("Aerospike loader started");
+	    // Perform main Read Write job.
+	    runLoader(client, columnDefinitionFileName, dataFileNames);
 
-			log.info("Aerospike loader started");
-			// Perform main Read Write job.
-			runLoader(client, columnDefinitionFileName, dataFileNames);
+	    // Stop statistic printer thread.
+	    statPrinter.interrupt();
+	    log.info("Aerospike loader completed");
+	    if (client != null) {
+	        client.close();
+	    }
 
-		} catch (Exception e) {
-			log.error(e);
-			if (log.isDebugEnabled()) {
-				e.printStackTrace();
-			}
-		} finally {
-			// Stop statistic printer thread.
-			statPrinter.interrupt();
-			log.info("Aerospike loader completed");
-			if (client != null) {
-				client.close();
-			}
-		}
+	    long processStop = System.currentTimeMillis();
+	    log.info(String.format("Loader completed in %.3fsec", (float) (processStop - processStart) / 1000));
+	    return 0;
+        }
 
-		long processStop = System.currentTimeMillis();
-		log.info(String.format("Loader completed in %.3fsec", (float) (processStop - processStart) / 1000));
-	}
-	
+        public static CommandLine parseArgs(String[] args) throws ParseException {
+	    counters = new Counter();
+	    CommandLine cl;
+
+	    Options options = new Options();
+	    options.addOption("h", "hosts", true,
+			      "List of seed hosts in format:\n" +
+			      "hostname1[:tlsname][:port1],...\n" +
+			      "The tlsname is only used when connecting with a secure TLS enabled server. " +
+			      "If the port is not specified, the default port is used.\n" +
+			      "IPv6 addresses must be enclosed in square brackets.\n" +
+			      "Default: localhost\n" +
+			      "Examples:\n" +
+			      "host1\n" +
+			      "host1:3000,host2:3000\n" +
+			      "192.168.1.10:cert1:3000,[2001::1111]:cert2:3000\n"
+			      );
+	    options.addOption("V", "version", false, "Aerospike Loader Version");
+	    options.addOption("p", "port", true, "Server port (default: 3000)");
+	    options.addOption("U", "user", true, "User name");
+	    options.addOption("P", "password", true, "Password");
+	    options.addOption("n", "namespace", true, "Namespace (default: test)");
+	    options.addOption("c", "config", true, "Column definition file name");
+	    options.addOption("g", "max-throughput", true, "It limit numer of writes/sec in aerospike.");
+	    options.addOption("T", "transaction-timeout", true, "write transaction timeout in milliseconds(default: No timeout)");
+	    options.addOption("e", "expirationTime", true,
+			      "Set expiration time of each record in seconds." +
+			      " -1: Never expire, " +
+			      "  0: Default to namespace," +
+			      " >0: Actual given expiration time"
+			      );
+	    options.addOption("tz", "timezone", true, "Timezone of source where data dump is taken (default: local timezone)");
+	    options.addOption("ec", "abort-error-count", true, "Error count to abort (default: 0)");
+	    options.addOption("wa", "write-action", true, "Write action if key already exists (default: update)");
+	    options.addOption("sa", "services_alternate", false, "Enable alternate services.");
+	    options.addOption("tls", "tls-enable", false, "Use TLS/SSL sockets");
+	    options.addOption("tp", "tls-protocols", true,
+			      "Allow TLS protocols\n" +
+			      "Values:  TLSv1,TLSv1.1,TLSv1.2 separated by comma\n" +
+			      "Default: TLSv1.2"
+			      );
+	    options.addOption("tlsCiphers", "tls-cipher-suite", true,
+			      "Allow TLS cipher suites\n" +
+			      "Values:  cipher names defined by JVM separated by comma\n" +
+			      "Default: null (default cipher list provided by JVM)"
+			      );
+	    options.addOption("tr", "tlsRevoke", true,
+			      "Revoke certificates identified by their serial number\n" +
+			      "Values:  serial numbers separated by comma\n" +
+			      "Default: null (Do not revoke certificates)"
+			      );
+
+	    options.addOption("tlsLoginOnly", false, "Use TLS/SSL sockets on node login only");
+	    options.addOption("auth", true, "Authentication mode. Values: " + Arrays.toString(AuthMode.values()));
+
+	    options.addOption("uk", "send-user-key", false,
+			      "Send user defined key in addition to hash digest to store on the server. (default: userKey is not sent to reduce meta-data overhead)"
+			      );
+	    options.addOption("v", "verbose", false, "Logging all");
+	    options.addOption("um", "unorderdMaps", false, "Write all maps as unorderd maps");
+	    options.addOption("u", "usage", false, "Print usage.");
+
+	    CommandLineParser parser = new PosixParser();
+	    cl = parser.parse(options, args, false);
+
+	    if (args.length == 0 || cl.hasOption("u")) {
+	        printUsage(options);
+	        return cl;
+	    }
+
+	    if (cl.hasOption("V")) {
+	        printVersion();
+	        return cl;
+	    }
+
+	    return cl;
+        }
+
 	private static AerospikeClient getAerospikeClient(CommandLine cl) {
 		ClientPolicy clientPolicy = new ClientPolicy();	
 		

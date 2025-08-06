@@ -48,7 +48,8 @@ Following dependencies are downloaded automatically:
 * Aerospike Java client 7.2.2 or greater
 * Apache commons cli 1.7.0
 * Log4j 2.22.1
-* Junit 4.13.1
+* Junit 5.11.4
+* system-lambda 1.2.1
 * Json-simple 1.1.1
 
 <a name="Usage"></a>
